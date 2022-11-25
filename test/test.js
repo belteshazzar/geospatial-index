@@ -1,16 +1,19 @@
-const fixtures = require('./fixtures');
-const fs = require('fs');
-const path = require('path');
-const PouchDB = require('pouchdb');
-const PouchDBGeospatial = require('./pouchdb.geospatial.loader').default;
-const tap = require('tap');
 
-PouchDB.plugin(PouchDBGeospatial);
+import {expect} from 'chai';
+
+import {fixtures} from './fixtures.js';
+import fs from 'fs';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import GeospatialDB from '../lib/geospatialdb/geospatialdb.js';
 
 // JSON loader
 const loadSync = (filepath) => JSON.parse(fs.readFileSync(filepath));
 
 // Load test fixtures
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const directory = path.join(__dirname, 'data/api');
 const capitals = loadSync(path.join(directory, 'us_capitals.json'));
 const city = loadSync(path.join(directory, 'us_city.json'));
@@ -21,195 +24,140 @@ const states = loadSync(path.join(directory, 'us_states.json'));
 
 // Geospatial db and apiget created before each test.
 let api;
-let db;
-let id = 0;
-
-// Get new database with unique name
-const database = () => {
-  const name = 'http://localhost:5984/testdb' + (++id);
-  return new PouchDB(name);
-};
 
 // Process database query for given predicate
 const query = (predicate, fixture, expected) => {
-  const db = database();
-  const api = db.geospatial();
-  return api.add(fixture.features[0]).then(() => {
-    return api[predicate](fixture.features[1]).then((result) => {
-      return db.destroy().then(() => {
-        return result.length === expected;
-      });
-    });
-  });
+  const api = new GeospatialDB()
+  api.add({ id: 1, geojson: fixture.features[0]})
+  const result = api[predicate](fixture.features[1])
+  expect(result.length).to.equal(expected)
 };
 
 // Run predicate tests for true, false, and throws cases.
-const tests = (predicate, t) => {
+const tests = (predicate) => {
   const cases = fixtures[predicate];
 
-  t.resolves(Promise.all(cases['true'].map((fixture) => {
-    return query(predicate, fixture, 1);
-  })));
+  cases['true'].map((fixture) => {
+    query(predicate, fixture, 1);
+  });
 
-  t.resolves(Promise.all(cases['false'].map((fixture) => {
+  cases['false'].map((fixture) => {
     return query(predicate, fixture, 0);
-  })));
+  });
 
-  if (cases['throws'].length === 0) {
-    return;
-  }
-
-  t.resolves(Promise.all(cases['throws'].map((fixture) => {
+  cases['throws'].map((fixture) => {
     return query(predicate, fixture, 0);
-  })));
+  });
 };
 
-tap.beforeEach((done) => {
-  db = database();
-  api = db.geospatial();
+beforeEach(() => {
+  api = new GeospatialDB()
+})
+
+describe("Simple Index Mechanics Tests", () => {
+
+  it("Add geojson to the index",() => {
+    const response = api.add({ id: 1, geojson: points });
+    expect(response).to.deep.equal({id: 1, bbox: [0,0,1,0], geojson: points})
+  })
+
+  it("Load a small collection", () => {
+    const response = api.load([{id: 'points', geojson: points}]);
+    expect(response).to.deep.equal([{id: 'points', bbox: [0,0,1,0], geojson: points}])
+  })
+
+  it('Do not add non-geometry to database',() => {
+    expect(api.add({})).to.be.null
+  })
+  
+  it('Do not load non-collection to database', () => {
+    expect(api.load([{}])).to.be.null;
+  })
+
+  it('Remove post points from db', () => {
+    const response = api.add({ id: 1, geojson: points });
+    const doc = api.remove(response.id);
+  });
+  
+  it('Load large collection', () => {
+    const data = states.features.map(geojson => { return {id: geojson.properties.NAME, geojson: geojson }})
+    const docs = api.load(data);
+    expect(docs.length).to.equal(50)
+  });
+})
+
+describe("predicate test suites", () => {
+
+  it('Contains test suite', () => {
+    tests('contains');
+  })
+
+  it('CoveredBy test suite', () => {
+    tests('coveredby');
+  });
+
+  it('Covers test suite', () => {
+    tests('covers');
+  });
+
+  it('Crosses test suite', () => {
+    tests('crosses');
+  });
+
+  it('Disjoint test suite', () => {
+    tests('disjoint');
+  });
+
+  it('Equals test suite', () => {
+    tests('equals');
+  });
+
+  it('Intersects test suite', () => {
+    tests('intersects');
+  });
+
+  it('Overlaps test suite', () => {
+    tests('overlaps');
+  });
+
+  it('Touches test suite', () => {
+    tests('touches');
+  });
+
+  it('Within test suite', () => {
+    tests('within');
+  });
+})
+
+describe("Find miscellaneous tests", () => {
+  it('Find point contained in large collection', () => {
+    const data = states.features.map(geojson => {
+      return {id: geojson.properties.NAME, geojson: geojson }})
+    const entries = api.load(data)
+    const response = api.contains(city);
+  });
+
+  it('Find capital covered by state', () => {
+    const data = capitals.features.map(geojson => { 
+      return {id: geojson.properties.name, geojson: geojson }})
+    api.load(data)
+
+    const res = states.features.map((state) => api.coveredby(state));
+
+    res.forEach((r, index) => {
+      expect(r.length).to.equal(1)
+    });
+
+  });
+
+  it('Find interstate intersecting state', () => {
+    const data = interstates.features.map(geojson => { 
+      return {id: geojson.properties.ROUTE_NUM, geojson: geojson }
+    })
+    api.load(data)
+    const res = states.features.map((state) => api.intersects(state));
+    res.forEach((r, index) => {
+      expect(r.length).to.be.greaterThan(0)
+    });
+  });
 });
-
-tap.afterEach((done) => {
-  db.destroy();
-});
-
-tap.test('Post points to database', async (t) => {
-  const response = await api.add(points);
-  const geojson = await db.get(response.id);
-  t.ok(geojson.features.length > 0);
-  const doc = await db.allDocs();
-  t.ok(doc.total_rows > 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Put points to database', async (t) => {
-  const options = {new_edits: true};
-  const response = await api.add(pointsId, options);
-  const geojson = await db.get(response.id);
-  t.ok(geojson.features.length > 0);
-  const doc = await db.allDocs();
-  t.ok(doc.total_rows > 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Put small collection', async (t) => {
-  const options = {new_edits: true};
-  const docs = await api.load([pointsId], options);
-  t.equal(docs.length, 1);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Do not add non-geometry to database', async (t) => {
-  const doc = await api.add({}).catch(() => db.allDocs());
-  t.equal(doc.total_rows, 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Do not load non-collection to database', async (t) => {
-  const doc = await api.load([{}]).catch(() => db.allDocs());
-  t.equal(doc.total_rows, 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Contains test suite', async (t) => {
-  tests('contains', t);
-}).catch(tap.threw);
-
-tap.test('CoveredBy test suite', async (t) => {
-  tests('coveredby', t);
-}).catch(tap.threw);
-
-tap.test('Covers test suite', async (t) => {
-  tests('covers', t);
-}).catch(tap.threw);
-
-tap.test('Crosses test suite', async (t) => {
-  tests('crosses', t);
-}).catch(tap.threw);
-
-tap.test('Disjoint test suite', async (t) => {
-  tests('disjoint', t);
-}).catch(tap.threw);
-
-tap.test('Equals test suite', async (t) => {
-  tests('equals', t);
-}).catch(tap.threw);
-
-tap.test('Intersects test suite', async (t) => {
-  tests('intersects', t);
-}).catch(tap.threw);
-
-tap.test('Overlaps test suite', async (t) => {
-  tests('overlaps', t);
-}).catch(tap.threw);
-
-tap.test('Touches test suite', async (t) => {
-  tests('touches', t);
-}).catch(tap.threw);
-
-tap.test('Within test suite', async (t) => {
-  tests('within', t);
-}).catch(tap.threw);
-
-tap.test('Remove post points from db', async (t) => {
-  const response = await api.add(points);
-  const geojson = await db.get(response.id);
-  const doc = await api.remove(geojson._id).then(() => db.allDocs());
-  t.equal(doc.total_rows, 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Remove put points from db', async (t) => {
-  const options = {new_edits: true};
-  const response = await api.add(pointsId, options);
-  const geojson = await db.get(response.id);
-  const doc = await api.remove(geojson._id).then(() => db.allDocs());
-  t.equal(doc.total_rows, 0);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Load large collection', async (t) => {
-  const docs = await api.load(states.features);
-  t.equal(docs.length, states.features.length);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Put large collection', async (t) => {
-  const options = {new_edits: true};
-  const docs = await api.load(states.features.map((feature, index) => {
-    feature._id = index.toString();
-    return feature;
-  }), options);
-  t.equal(docs.length, states.features.length);
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Find point contained in large collection', async (t) => {
-  const response = await api.load(states.features).then(() => {
-    return api.contains(city);
-  });
-  t.equal(response.length, 1);
-  const geojson = await db.get(response[0]);
-  t.equal(geojson.properties.NAME, 'Virginia');
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Find capital covered by state', async (t) => {
-  const responses = await api.load(capitals.features).then(() => {
-    return Promise.all(states.features.map((state) => api.coveredby(state)));
-  });
-  responses.forEach((response, index) => {
-    t.equal(response.length, 1, states.features[index].properties.NAME);
-  });
-  t.end();
-}).catch(tap.threw);
-
-tap.test('Find interstate intersecting state', async (t) => {
-  const responses = await api.load(interstates.features).then(() => {
-    return Promise.all(states.features.map((state) => api.intersects(state)));
-  });
-  responses.forEach((response, index) => {
-    t.ok(response.length > 0, states.features[index].properties.NAME);
-  });
-  t.end();
-}).catch(tap.threw);

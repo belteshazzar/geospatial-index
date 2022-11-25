@@ -1,10 +1,15 @@
-const fs = require('fs');
-const glob = require('glob');
-const path = require('path');
+
+import fs from 'fs'
+import glob from 'glob'
+import path from 'path'
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Find fixtures for each predicate and expected return type
 const ext = '*.json';
-const fixtures = {};
+export const fixtures = {};
 
 [
   'contains',
@@ -32,5 +37,3 @@ const fixtures = {};
     });
   });
 });
-
-module.exports = fixtures;
