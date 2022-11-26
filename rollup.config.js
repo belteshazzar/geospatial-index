@@ -15,26 +15,25 @@ const banner = `\
  */
 `;
 
-const build = (filename, plugins) => ({
-  external: [
-    '@turf/turf',
-    'de9im',
-  ],
-  input: pkg.module,
-  output: {
+export default {
+  // external: [
+  //   '@turf/turf',
+  //   'de9im',
+  // ],
+  input: pkg.main,
+  output: [{
     banner: banner,
-    file: filename,
-    format: 'umd',
-    name: 'PouchDBGeospatial',
-  },
-  plugins,
-});
-
-export default [
-  build('pouchdb-geospatial.js', [
-    commonjs(), globals(), resolve(),
-  ]),
-  build('pouchdb-geospatial.min.js', [
-    commonjs(), globals(), resolve(), terser(),
-  ]),
-];
+    file: `build/geospatial-index.js`,
+    name: 'geospatial-index',
+    format: 'es',
+    sourcemap: true,
+  }, {
+    banner: banner,
+    file: `build/geospatial-index.min.js`,
+    format: 'es',
+    name: 'geospatial-index',
+    plugins: [terser()],
+    sourcemap: true,
+  }],
+  plugins: [commonjs(), globals(), resolve(), terser()],
+};

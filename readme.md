@@ -1,3 +1,5 @@
+**Note:** This has been forked from https://github.com/dpmcmlxxvi/pouchdb-geospatial, the documentation has yet to be updated. Geospatial-index is a stand alone geospatial index, all integrations with PouchDB have been removed. It continues to be dependent on turf, de9im and RBush.
+
 # [PouchDB Geospatial][pouchdb-geospatial-github]
 
 [![build](https://github.com/dpmcmlxxvi/pouchdb-geospatial/actions/workflows/build.yml/badge.svg)](https://github.com/dpmcmlxxvi/pouchdb-geospatial/actions)

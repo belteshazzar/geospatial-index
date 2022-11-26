@@ -1,12 +1,12 @@
 {
-  "name": "pouchdb-geospatial",
-  "version": "0.4.0",
-  "description": "PouchDB geospatial query plugin.",
-  "main": "pouchdb-geospatial.js",
-  "module": "./lib/index.js",
+  "name": "geospatial-index",
+  "version": "0.0.1",
+  "description": "geospatial index based on rbush",
+  "main": "./lib/geospatialdb.js",
+  "module": "./lib/geospatialdb.js",
   "type": "module",
-  "unpkg": "pouchdb-geospatial.min.js",
-  "jsdelivr": "pouchdb-geospatial.min.js",
+  "unpkg": "./build/geospatial-index.min.js",
+  "jsdelivr": "./build/geospatial-index.min.js",
   "scripts": {
     "build": "run-s lint bundle docs:build",
     "bundle": "rollup --silent -c",
@@ -25,12 +25,11 @@
   },
   "files": [
     "lib/",
-    "pouchdb-geospatial.js",
-    "pouchdb-geospatial.min.js"
+    "bulid/"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dpmcmlxxvi/pouchdb-geospatial.git"
+    "url": "git+https://github.com/belteshazzar/geospatial-index.git"
   },
   "keywords": [
     "pouchdb",
@@ -43,9 +42,9 @@
   "author": "Daniel Pulido <dpmcmlxxvi@gmail.com>",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/dpmcmlxxvi/pouchdb-geospatial/issues"
+    "url": "https://github.com/belteshazzar/geospatial-index/issues"
   },
-  "homepage": "https://github.com/dpmcmlxxvi/pouchdb-geospatial#readme",
+  "homepage": "https://github.com/belteshazzar/geospatial-index#readme",
   "dependencies": {
     "@turf/turf": "5.1.6",
     "de9im": "1.3.1",
